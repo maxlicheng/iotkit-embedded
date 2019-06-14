@@ -1,6 +1,17 @@
 --- iotkit-embedded/src/mqtt/examples/mqtt_example.c	2019-06-13 20:46:41.404732993 +0800
-+++ iotkit-embedded-test/src/mqtt/examples/mqtt_example.c	2019-06-14 02:48:36.945720968 +0800
-@@ -1,5 +1,13 @@
++++ iotkit-embedded-test/src/mqtt/examples/mqtt_example.c	2019-06-14 22:42:47.884960652 +0800
+@@ -1,5 +1,24 @@
++/********************************************************************************************************************************
++** 文件名		:002-mqtt_example.c
++** 作者			:maxlicheng<licheng.chn@outlook.com>
++** 作者github		:https://github.com/maxlicheng
++** 作者博客		:https://www.maxlicheng.com/	
++** 生成日期		:2019-06-14
++** 描述			:mqtt示例，适用于嵌入式Linux开发板，
++**					可通过阿里云物联网平台控制LED的亮灭，
++**					并将云平台发送的字符串写入到txt文件中，
++**					同时上报光亮度（adc电压值） 和 随机产生的温湿度数据。
++**********************************************************************************************************************************/
  #include "dev_sign_api.h"
  #include "mqtt_api.h"
 +#include <string.h>
@@ -14,7 +25,7 @@
  
  char DEMO_PRODUCT_KEY[IOTX_PRODUCT_KEY_LEN + 1] = {0};
  char DEMO_DEVICE_NAME[IOTX_DEVICE_NAME_LEN + 1] = {0};
-@@ -23,7 +31,17 @@
+@@ -23,7 +42,17 @@
  
  void example_message_arrive(void *pcontext, void *pclient, iotx_mqtt_event_msg_pt msg)
  {
@@ -33,7 +44,7 @@
  
      switch (msg->event_type) {
          case IOTX_MQTT_EVENT_PUBLISH_RECEIVED:
-@@ -32,6 +50,57 @@
+@@ -32,6 +61,57 @@
              EXAMPLE_TRACE("Topic  : %.*s", topic_info->topic_len, topic_info->ptopic);
              EXAMPLE_TRACE("Payload: %.*s", topic_info->payload_len, topic_info->payload);
              EXAMPLE_TRACE("\n");
@@ -91,7 +102,7 @@
              break;
          default:
              break;
-@@ -41,7 +110,7 @@
+@@ -41,7 +121,7 @@
  int example_subscribe(void *handle)
  {
      int res = 0;
@@ -100,7 +111,7 @@
      char *topic = NULL;
      int topic_len = 0;
  
-@@ -67,30 +136,61 @@
+@@ -67,30 +147,61 @@
  
  int example_publish(void *handle)
  {
@@ -186,7 +197,7 @@
  }
  
  void example_event_handle(void *pcontext, void *pclient, iotx_mqtt_event_msg_pt msg)
-@@ -221,6 +321,8 @@
+@@ -221,6 +332,8 @@
       * default value is NULL, which means PUB/SUB event won't be exposed.
       *
       */
@@ -195,7 +206,7 @@
      mqtt_params.handle_event.h_fp = example_event_handle;
  
      pclient = IOT_MQTT_Construct(&mqtt_params);
-@@ -235,6 +337,8 @@
+@@ -235,6 +348,8 @@
          return -1;
      }
  
@@ -204,8 +215,3 @@
      while (1) {
          if (0 == loop_cnt % 20) {
              example_publish(pclient);
-@@ -248,3 +352,4 @@
-     return 0;
- }
- 
-+
