@@ -1,0 +1,165 @@
+--- iotkit-embedded/src/mqtt/examples/mqtt_example.c	2019-06-13 20:46:41.404732993 +0800
++++ iotkit-embedded-test/src/mqtt/examples/mqtt_example.c	2019-06-14 17:57:42.927479821 +0800
+@@ -1,5 +1,9 @@
+ #include "dev_sign_api.h"
+ #include "mqtt_api.h"
++#include <string.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <cJSON.h>
+ 
+ char DEMO_PRODUCT_KEY[IOTX_PRODUCT_KEY_LEN + 1] = {0};
+ char DEMO_DEVICE_NAME[IOTX_DEVICE_NAME_LEN + 1] = {0};
+@@ -23,6 +27,11 @@
+ 
+ void example_message_arrive(void *pcontext, void *pclient, iotx_mqtt_event_msg_pt msg)
+ {
++	cJSON *json = NULL;
++	cJSON *json_params = NULL;
++	cJSON *json_id = NULL;
++	cJSON *json_led = NULL;
++	cJSON *json_display = NULL;
+     iotx_mqtt_topic_info_t     *topic_info = (iotx_mqtt_topic_info_pt) msg->msg;
+ 
+     switch (msg->event_type) {
+@@ -32,6 +41,41 @@
+             EXAMPLE_TRACE("Topic  : %.*s", topic_info->topic_len, topic_info->ptopic);
+             EXAMPLE_TRACE("Payload: %.*s", topic_info->payload_len, topic_info->payload);
+             EXAMPLE_TRACE("\n");
++		json = cJSON_Parse(topic_info->payload);			//解析数据包
++		if (!json)  
++		{  
++			HAL_Printf("Error before: [%s]\r\n",cJSON_GetErrorPtr());  
++		} 
++		else
++		{
++			json_id = cJSON_GetObjectItem(json , "id"); 
++			if(json_id->type == cJSON_String)
++			{
++				HAL_Printf("id:%s\r\n", json_id->valuestring);  
++			}
++			json_params = cJSON_GetObjectItem(json , "params");  
++			if(json_params)  
++			{  
++				if(cJSON_GetObjectItem(json_params, "led"))
++				{
++					json_led  = cJSON_GetObjectItem(json_params, "led");
++					if(json_led->type == cJSON_Number)
++					{
++						HAL_Printf("LED:%d\r\n", json_led->valueint);  
++					}
++				}
++				if(cJSON_GetObjectItem(json_params, "display"))
++				{
++					json_display = cJSON_GetObjectItem(json_params, "display");
++					if (json_display->type == cJSON_String)  
++					{  
++						HAL_Printf("display:%s\r\n", json_display->valuestring);  
++
++					}  
++				}
++			} 
++		}
++		cJSON_Delete(json);
+             break;
+         default:
+             break;
+@@ -41,7 +85,7 @@
+ int example_subscribe(void *handle)
+ {
+     int res = 0;
+-    const char *fmt = "/%s/%s/user/get";
++    const char *fmt = "/sys/%s/%s/thing/service/property/set"	;
+     char *topic = NULL;
+     int topic_len = 0;
+ 
+@@ -67,30 +111,41 @@
+ 
+ int example_publish(void *handle)
+ {
+-    int             res = 0;
+-    const char     *fmt = "/%s/%s/user/get";
+-    char           *topic = NULL;
+-    int             topic_len = 0;
+-    char           *payload = "{\"message\":\"hello!\"}";
+-
+-    topic_len = strlen(fmt) + strlen(DEMO_PRODUCT_KEY) + strlen(DEMO_DEVICE_NAME) + 1;
+-    topic = HAL_Malloc(topic_len);
+-    if (topic == NULL) {
+-        EXAMPLE_TRACE("memory not enough");
+-        return -1;
+-    }
+-    memset(topic, 0, topic_len);
+-    HAL_Snprintf(topic, topic_len, fmt, DEMO_PRODUCT_KEY, DEMO_DEVICE_NAME);
+-
+-    res = IOT_MQTT_Publish_Simple(0, topic, IOTX_MQTT_QOS0, payload, strlen(payload));
+-    if (res < 0) {
+-        EXAMPLE_TRACE("publish failed, res = %d", res);
+-        HAL_Free(topic);
+-        return -1;
+-    }
+-
+-    HAL_Free(topic);
+-    return 0;
++    	int             res = 0;
++	float temp = 0;
++	float humid = 0;
++	const char *fmt = "/sys/%s/%s/thing/event/property/post";
++    	char           *topic = NULL;
++    	int             topic_len = 0;
++    	char           *payload = NULL;
++		
++	payload = HAL_Malloc(200);
++	memset(payload, 0, 200);
++	
++	temp = 24.7+rand()%10+1;
++	humid = 54.8+rand()%10+1;
++	
++	sprintf((char*)payload,"{\"params\":{\"CurrentTemperature\":%0.1f,\"RelativeHumidity\":%0.1f},\"method\":\"thing.event.property.post\"}",temp, humid);
++	
++    	topic_len = strlen(fmt) + strlen(DEMO_PRODUCT_KEY) + strlen(DEMO_DEVICE_NAME) + 1;
++    	topic = HAL_Malloc(topic_len);
++    	if (topic == NULL) {
++        	EXAMPLE_TRACE("memory not enough");
++        	return -1;
++    	}
++    	memset(topic, 0, topic_len);
++    	HAL_Snprintf(topic, topic_len, fmt, DEMO_PRODUCT_KEY, DEMO_DEVICE_NAME);
++
++    	res = IOT_MQTT_Publish_Simple(0, topic, IOTX_MQTT_QOS0, payload, strlen(payload));
++    	if (res < 0) {
++        	EXAMPLE_TRACE("publish failed, res = %d", res);
++        	HAL_Free(topic);
++        	return -1;
++    	}
++
++    	HAL_Free(topic);
++	HAL_Free(payload);
++    	return 0;
+ }
+ 
+ void example_event_handle(void *pcontext, void *pclient, iotx_mqtt_event_msg_pt msg)
+@@ -221,6 +276,8 @@
+      * default value is NULL, which means PUB/SUB event won't be exposed.
+      *
+      */
++     
++	
+     mqtt_params.handle_event.h_fp = example_event_handle;
+ 
+     pclient = IOT_MQTT_Construct(&mqtt_params);
+@@ -235,6 +292,8 @@
+         return -1;
+     }
+ 
++	HAL_Printf("\r\ncJSON Version: %s\r\n", cJSON_Version());
++
+     while (1) {
+         if (0 == loop_cnt % 20) {
+             example_publish(pclient);
+@@ -248,3 +307,5 @@
+     return 0;
+ }
+ 
++
++
